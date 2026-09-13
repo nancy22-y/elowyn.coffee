@@ -18,19 +18,19 @@
     <!-- 设置卡片：填写 API Key -->
     <div class="bg-white p-4 rounded-2xl shadow-sm border border-stone-200 space-y-2">
       <label class="block text-xs font-semibold text-stone-500 uppercase">Google Gemini API Key</label>
-      <input type="password" id="apiKey" placeholder="在此粘贴你的 API Key (AIzaSy...)" 
+      <input type="password" id="apiKey" placeholder="在此粘贴 API Key (以 AIzaSy 开头)" 
              class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-700">
-      <p class="text-xs text-stone-400">密钥保存在浏览器本地，不会上传给第三方。</p>
+      <p class="text-xs text-stone-400">请确保前后的 API Key 粘贴完整且无多余空格。</p>
     </div>
 
     <!-- 上传卡片 -->
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 text-center space-y-4">
       <div class="border-2 border-dashed border-stone-300 rounded-xl p-6 hover:bg-stone-50 transition cursor-pointer relative">
-        <input type="file" id="imageInput" accept="image/*" capture="environment" 
+        <input type="file" id="imageInput" accept="image/*" 
                class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="previewImage(event)">
         <div class="space-y-2" id="uploadPlaceholder">
           <div class="text-4xl">📷</div>
-          <p class="text-sm font-medium text-stone-600">点击拍照或上传收据图片</p>
+          <p class="text-sm font-medium text-stone-600">点击上传或选择收据图片</p>
         </div>
         <img id="imagePreview" class="hidden max-h-48 mx-auto rounded-lg shadow-sm" />
       </div>
@@ -39,6 +39,9 @@
               class="w-full bg-amber-800 hover:bg-amber-900 text-white font-medium py-3 rounded-xl shadow transition disabled:opacity-50">
         识别收据
       </button>
+
+      <!-- 详细报错显示区 -->
+      <div id="errorBox" class="hidden text-left p-3 text-xs bg-red-50 text-red-600 border border-red-200 rounded-lg"></div>
     </div>
 
     <!-- 结果卡片 -->
@@ -54,7 +57,7 @@
           <input type="text" id="resVendor" class="w-full bg-stone-50 p-2 rounded border border-stone-200 text-sm">
         </div>
         <div>
-          <label class="text-xs text-stone-500">总金额 ($ / RM)</label>
+          <label class="text-xs text-stone-500">总金额</label>
           <input type="number" step="0.01" id="resAmount" class="w-full font-bold text-amber-900 bg-stone-50 p-2 rounded border border-stone-200 text-base">
         </div>
       </div>
@@ -73,7 +76,6 @@
   </div>
 
   <script>
-    // 页面加载时自动读取保存的 Key 和历史记录
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('apiKey').value = localStorage.getItem('gemini_key') || '';
       renderHistory();
@@ -88,27 +90,55 @@
     function previewImage(event) {
       const file = event.target.files[0];
       if (!file) return;
+
+      // 自动把图片压缩，避免手机拍照图片太大导致请求失败
       const reader = new FileReader();
       reader.onload = function(e) {
-        base64Image = e.target.result.split(',')[1];
-        const preview = document.getElementById('imagePreview');
-        preview.src = e.target.result;
-        preview.classList.remove('hidden');
-        document.getElementById('uploadPlaceholder').classList.add('hidden');
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // 限制图片最大尺寸，提升识别成功率
+          const max_size = 1000;
+          if (width > height) {
+            if (width > max_size) { height *= max_size / width; width = max_size; }
+          } else {
+            if (height > max_size) { width *= max_size / height; height = max_size; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedUrl = canvas.toDataURL('image/jpeg', 0.8);
+          base64Image = compressedUrl.split(',')[1];
+          
+          const preview = document.getElementById('imagePreview');
+          preview.src = compressedUrl;
+          preview.classList.remove('hidden');
+          document.getElementById('uploadPlaceholder').classList.add('hidden');
+        }
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
 
     async function analyzeReceipt() {
       const apiKey = document.getElementById('apiKey').value.trim();
-      if (!apiKey) return alert("请先填写 API Key！");
-      if (!base64Image) return alert("请先上传或拍照一张收据！");
+      const errorBox = document.getElementById('errorBox');
+      errorBox.classList.add('hidden');
+      errorBox.innerText = "";
+
+      if (!apiKey) return showError("请先在上方框内粘贴你的 API Key！");
+      if (!base64Image) return showError("请先选择一张收据图片！");
 
       const btn = document.getElementById('btnAnalyze');
       btn.disabled = true;
-      btn.innerText = "AI 正在识别中...";
+      btn.innerText = "正在分析收据中...";
 
-      const prompt = "请分析这张收据，提取日期(date, 格式YYYY-MM-DD)、商家名称(vendor)、总金额(total_amount, 仅数字)。请严格仅返回JSON，格式如下：{\"date\":\"...\",\"vendor\":\"...\",\"total_amount\":0.00}";
+      const promptText = "分析收据图片，提取：1.日期(YYYY-MM-DD) 2.商家名称(vendor) 3.总金额数字(total_amount)。只输出JSON格式：{\"date\":\"2026-01-01\",\"vendor\":\"xxx\",\"total_amount\":12.3}";
 
       try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
@@ -117,13 +147,18 @@
           body: JSON.stringify({
             contents: [{
               parts: [
-                { text: prompt },
+                { text: promptText },
                 { inline_data: { mime_type: "image/jpeg", data: base64Image } }
               ]
             }]
           })
         });
-        
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error?.message || `请求失败 HTTP ${res.status}`);
+        }
+
         const data = await res.json();
         const textResp = data.candidates[0].content.parts[0].text;
         const cleanJson = textResp.replace(/```json|```/g, "").trim();
@@ -135,20 +170,24 @@
 
         document.getElementById('resultCard').classList.remove('hidden');
       } catch (err) {
-        alert("识别失败，请检查 API Key 或图片是否清晰。");
-        console.error(err);
+        showError("识别错误提示：" + err.message);
       } finally {
         btn.disabled = false;
         btn.innerText = "识别收据";
       }
     }
 
+    function showError(msg) {
+      const errorBox = document.getElementById('errorBox');
+      errorBox.innerText = msg;
+      errorBox.classList.remove('hidden');
+    }
+
     function saveRecord() {
       const record = {
         date: document.getElementById('resDate').value,
         vendor: document.getElementById('resVendor').value,
-        amount: parseFloat(document.getElementById('resAmount').value) || 0,
-        time: new Date().toLocaleTimeString()
+        amount: parseFloat(document.getElementById('resAmount').value) || 0
       };
 
       const history = JSON.parse(localStorage.getItem('expense_history') || '[]');
@@ -157,7 +196,7 @@
 
       renderHistory();
       document.getElementById('resultCard').classList.add('hidden');
-      alert("记录保存成功！");
+      alert("成功存入开销记录！");
     }
 
     function renderHistory() {
