@@ -3,203 +3,184 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>elowyn.coffee - 记账与订单系统</title>
+  <title>elowyn.coffee - Excel 账目表</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-stone-50 text-stone-800 min-h-screen p-4 md:p-8">
+<body class="bg-stone-100 text-stone-800 min-h-screen p-2 md:p-6">
 
-  <div class="max-w-xl mx-auto space-y-6">
-    <!-- 头部 -->
-    <header class="text-center space-y-1">
-      <h1 class="text-2xl font-bold text-amber-900 tracking-wide">elowyn.coffee</h1>
-      <p class="text-sm text-stone-500">住家式咖啡馆 · 收支与订单管理</p>
+  <div class="max-w-6xl mx-auto space-y-4">
+    <!-- 头部与汇总 -->
+    <header class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div>
+        <h1 class="text-xl font-bold text-amber-900">elowyn.coffee</h1>
+        <p class="text-xs text-stone-400">住家式咖啡馆 · Excel 样式流水账表</p>
+      </div>
+
+      <div class="flex gap-6 text-sm">
+        <div class="text-center">
+          <span class="text-xs text-stone-400 block">总收入</span>
+          <span id="totalIncome" class="font-bold text-emerald-600 text-base">$0.00</span>
+        </div>
+        <div class="text-center">
+          <span class="text-xs text-stone-400 block">总开销</span>
+          <span id="totalExpense" class="font-bold text-rose-600 text-base">$0.00</span>
+        </div>
+        <div class="text-center">
+          <span class="text-xs text-stone-400 block">结余/净利润</span>
+          <span id="netProfit" class="font-bold text-amber-900 text-base">$0.00</span>
+        </div>
+      </div>
     </header>
 
-    <!-- 财务看板 -->
-    <div class="grid grid-cols-3 gap-3 text-center">
-      <div class="bg-white p-3 rounded-2xl shadow-sm border border-stone-200">
-        <div class="text-xs text-stone-400 font-medium">总收入</div>
-        <div id="totalIncome" class="text-lg font-bold text-emerald-600 mt-1">$0.00</div>
-      </div>
-      <div class="bg-white p-3 rounded-2xl shadow-sm border border-stone-200">
-        <div class="text-xs text-stone-400 font-medium">总开销</div>
-        <div id="totalExpense" class="text-lg font-bold text-rose-600 mt-1">$0.00</div>
-      </div>
-      <div class="bg-white p-3 rounded-2xl shadow-sm border border-stone-200">
-        <div class="text-xs text-stone-400 font-medium">净利润</div>
-        <div id="netProfit" class="text-lg font-bold text-amber-900 mt-1">$0.00</div>
-      </div>
-    </div>
+    <!-- 主表格区域 (Excel 视图) -->
+    <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs md:text-sm">
+          <!-- 表头 -->
+          <thead>
+            <tr class="bg-stone-200/70 text-stone-600 font-semibold border-b border-stone-300">
+              <th class="p-2.5 border-r border-stone-300 w-32">日期</th>
+              <th class="p-2.5 border-r border-stone-300 w-24">类型</th>
+              <th class="p-2.5 border-r border-stone-300 w-32">分类</th>
+              <th class="p-2.5 border-r border-stone-300">说明 / 项目明细</th>
+              <th class="p-2.5 border-r border-stone-300 w-32 text-right">金额 ($ / RM)</th>
+              <th class="p-2.5 text-center w-16">操作</th>
+            </tr>
+          </thead>
 
-    <!-- 记账表单 -->
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
-      <h2 class="font-bold text-stone-700 border-b pb-2">记一笔</h2>
-      
-      <form id="recordForm" class="space-y-4" onsubmit="addRecord(event)">
-        <!-- 类型选择 (收入/支出) -->
-        <div class="grid grid-cols-2 gap-2 p-1 bg-stone-100 rounded-xl">
-          <button type="button" id="btnIncome" onclick="setType('income')" 
-                  class="py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white shadow-sm transition">
-            📈 订单收入
-          </button>
-          <button type="button" id="btnExpense" onclick="setType('expense')" 
-                  class="py-2 text-sm font-medium rounded-lg text-stone-600 transition">
-            📉 开销支出
-          </button>
-        </div>
+          <tbody>
+            <!-- 快速新增行 (Excel 录入行) -->
+            <tr class="bg-amber-50/50 border-b-2 border-amber-200">
+              <td class="p-1 border-r border-stone-200">
+                <input type="date" id="newDate" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+              </td>
+              <td class="p-1 border-r border-stone-200">
+                <select id="newType" class="w-full bg-transparent p-1 font-medium focus:bg-white focus:outline-none text-xs">
+                  <option value="income" class="text-emerald-600">📈 收入</option>
+                  <option value="expense" class="text-rose-600">📉 支出</option>
+                </select>
+              </td>
+              <td class="p-1 border-r border-stone-200">
+                <select id="newCategory" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+                  <option value="咖啡销售">咖啡销售</option>
+                  <option value="豆子/牛奶">豆子/牛奶</option>
+                  <option value="包装/消耗品">包装/消耗品</option>
+                  <option value="设备/工具">设备/工具</option>
+                  <option value="水电杂费">水电杂费</option>
+                  <option value="其他">其他</option>
+                </select>
+              </td>
+              <td class="p-1 border-r border-stone-200">
+                <input type="text" id="newTitle" placeholder="+ 填写说明按回车保存" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+              </td>
+              <td class="p-1 border-r border-stone-200">
+                <input type="number" step="0.01" id="newAmount" placeholder="0.00" class="w-full bg-transparent p-1 text-right font-bold focus:bg-white focus:outline-none text-xs">
+              </td>
+              <td class="p-1 text-center">
+                <button onclick="addRecord()" class="bg-amber-800 hover:bg-amber-900 text-white text-xs px-2 py-1 rounded transition">添加</button>
+              </td>
+            </tr>
 
-        <div class="space-y-3">
-          <div>
-            <label class="block text-xs text-stone-500 mb-1">日期</label>
-            <input type="date" id="recDate" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-800">
-          </div>
-
-          <div>
-            <label class="block text-xs text-stone-500 mb-1">说明 / 客户 / 供应商</label>
-            <input type="text" id="recTitle" placeholder="例如：拿铁2杯 / 购买咖啡豆" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-800">
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs text-stone-500 mb-1">金额 ($ / RM)</label>
-              <input type="number" step="0.01" id="recAmount" placeholder="0.00" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-800">
-            </div>
-            <div>
-              <label class="block text-xs text-stone-500 mb-1">分类</label>
-              <select id="recCategory" class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-800">
-                <option value="咖啡销售">咖啡销售</option>
-                <option value="豆子/牛奶">豆子/牛奶</option>
-                <option value="包装/消耗品">包装/消耗品</option>
-                <option value="设备/维护">设备/维护</option>
-                <option value="水电杂费">水电杂费</option>
-                <option value="其他">其他</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <button type="submit" class="w-full bg-amber-800 hover:bg-amber-900 text-white font-medium py-3 rounded-xl shadow transition">
-          保存记录
-        </button>
-      </form>
-    </div>
-
-    <!-- 账目列表 -->
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
-      <div class="flex justify-between items-center border-b pb-2">
-        <h2 class="font-bold text-stone-700">历史账目</h2>
-        <button onclick="clearAll()" class="text-xs text-stone-400 hover:text-rose-500">清空所有</button>
-      </div>
-      
-      <div id="recordList" class="divide-y divide-stone-100 text-sm">
-        <p class="text-stone-400 text-center py-4">暂无账目记录</p>
+            <!-- 动态渲染数据行 -->
+            <tbody id="tableBody">
+              <!-- 数据行会通过 JS 添加到这里 -->
+            </tbody>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 
   <script>
-    let currentType = 'income';
-
     document.addEventListener('DOMContentLoaded', () => {
-      // 默认设置为今天
-      document.getElementById('recDate').value = new Date().toISOString().split('T')[0];
-      renderList();
+      // 默认设置今天日期
+      document.getElementById('newDate').value = new Date().toISOString().split('T')[0];
+      
+      // 在金额输入框回车直接保存
+      document.getElementById('newAmount').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addRecord();
+      });
+
+      renderTable();
     });
 
-    function setType(type) {
-      currentType = type;
-      const btnIncome = document.getElementById('btnIncome');
-      const btnExpense = document.getElementById('btnExpense');
+    function addRecord() {
+      const date = document.getElementById('newDate').value;
+      const type = document.getElementById('newType').value;
+      const category = document.getElementById('newCategory').value;
+      const title = document.getElementById('newTitle').value.trim();
+      const amount = parseFloat(document.getElementById('newAmount').value);
 
-      if (type === 'income') {
-        btnIncome.className = "py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white shadow-sm transition";
-        btnExpense.className = "py-2 text-sm font-medium rounded-lg text-stone-600 transition";
-      } else {
-        btnExpense.className = "py-2 text-sm font-medium rounded-lg bg-rose-600 text-white shadow-sm transition";
-        btnIncome.className = "py-2 text-sm font-medium rounded-lg text-stone-600 transition";
+      if (!title || isNaN(amount)) {
+        alert("请完整填写【说明】和【金额】！");
+        return;
       }
-    }
 
-    function addRecord(e) {
-      e.preventDefault();
-      
-      const record = {
-        id: Date.now(),
-        type: currentType,
-        date: document.getElementById('recDate').value,
-        title: document.getElementById('recTitle').value.trim(),
-        amount: parseFloat(document.getElementById('recAmount').value),
-        category: document.getElementById('recCategory').value
-      };
-
-      const records = JSON.parse(localStorage.getItem('elowyn_records') || '[]');
+      const record = { id: Date.now(), date, type, category, title, amount };
+      const records = JSON.parse(localStorage.getItem('elowyn_excel_records') || '[]');
       records.unshift(record);
-      localStorage.setItem('elowyn_records', JSON.stringify(records));
+      localStorage.setItem('elowyn_excel_records', JSON.stringify(records));
 
       // 清空输入框
-      document.getElementById('recTitle').value = '';
-      document.getElementById('recAmount').value = '';
-      
-      renderList();
+      document.getElementById('newTitle').value = '';
+      document.getElementById('newAmount').value = '';
+
+      renderTable();
     }
 
     function deleteRecord(id) {
-      let records = JSON.parse(localStorage.getItem('elowyn_records') || '[]');
+      let records = JSON.parse(localStorage.getItem('elowyn_excel_records') || '[]');
       records = records.filter(r => r.id !== id);
-      localStorage.setItem('elowyn_records', JSON.stringify(records));
-      renderList();
+      localStorage.setItem('elowyn_excel_records', JSON.stringify(records));
+      renderTable();
     }
 
-    function clearAll() {
-      if (confirm("确定要清空所有记录吗？此操作无法撤销。")) {
-        localStorage.removeItem('elowyn_records');
-        renderList();
-      }
-    }
-
-    function renderList() {
-      const records = JSON.parse(localStorage.getItem('elowyn_records') || '[]');
-      const container = document.getElementById('recordList');
+    function renderTable() {
+      const records = JSON.parse(localStorage.getItem('elowyn_excel_records') || '[]');
+      const tbody = document.getElementById('tableBody');
 
       let totalIncome = 0;
       let totalExpense = 0;
 
       if (records.length === 0) {
-        container.innerHTML = '<p class="text-stone-400 text-center py-4">暂无账目记录</p>';
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-6 text-stone-400">暂无任何数据，请在上方第一行输入并添加。</td>
+          </tr>
+        `;
       } else {
-        container.innerHTML = records.map(item => {
+        tbody.innerHTML = records.map((item, index) => {
           const isIncome = item.type === 'income';
           if (isIncome) totalIncome += item.amount;
           else totalExpense += item.amount;
 
           return `
-            <div class="py-3 flex justify-between items-center">
-              <div class="space-y-0.5">
-                <div class="font-medium text-stone-800">
-                  ${item.title}
-                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal ml-1">${item.category}</span>
-                </div>
-                <div class="text-xs text-stone-400">${item.date}</div>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="font-bold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">
-                  ${isIncome ? '+' : '-'}$${item.amount.toFixed(2)}
-                </span>
-                <button onclick="deleteRecord(${item.id})" class="text-stone-300 hover:text-rose-500 text-xs">✕</button>
-              </div>
-            </div>
+            <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-stone-50'} hover:bg-amber-50/30 border-b border-stone-200 transition">
+              <td class="p-2 border-r border-stone-200 font-mono text-xs text-stone-500">${item.date}</td>
+              <td class="p-2 border-r border-stone-200 font-medium ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">
+                ${isIncome ? '收入' : '支出'}
+              </td>
+              <td class="p-2 border-r border-stone-200 text-stone-600">${item.category}</td>
+              <td class="p-2 border-r border-stone-200 text-stone-800 font-medium">${item.title}</td>
+              <td class="p-2 border-r border-stone-200 text-right font-bold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">
+                ${isIncome ? '+' : '-'}$${item.amount.toFixed(2)}
+              </td>
+              <td class="p-2 text-center">
+                <button onclick="deleteRecord(${item.id})" class="text-stone-300 hover:text-rose-500 text-xs font-bold">✕</button>
+              </td>
+            </tr>
           `;
         }).join('');
       }
 
-      // 更新顶部面板
+      // 更新顶部统计数据
       document.getElementById('totalIncome').innerText = `$${totalIncome.toFixed(2)}`;
       document.getElementById('totalExpense').innerText = `$${totalExpense.toFixed(2)}`;
       
       const profit = totalIncome - totalExpense;
       const profitEl = document.getElementById('netProfit');
       profitEl.innerText = `$${profit.toFixed(2)}`;
-      profitEl.className = `text-lg font-bold mt-1 ${profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`;
+      profitEl.className = `font-bold text-base ${profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`;
     }
   </script>
 </body>
