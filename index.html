@@ -3,218 +3,203 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>elowyn.coffee - 开销与收据记录</title>
+  <title>elowyn.coffee - 记账与订单系统</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-stone-50 text-stone-800 min-h-screen p-4 md:p-8">
 
   <div class="max-w-xl mx-auto space-y-6">
-    <!-- 头部标语 -->
+    <!-- 头部 -->
     <header class="text-center space-y-1">
       <h1 class="text-2xl font-bold text-amber-900 tracking-wide">elowyn.coffee</h1>
-      <p class="text-sm text-stone-500">住家式咖啡馆 · 收据与开销自动识别</p>
+      <p class="text-sm text-stone-500">住家式咖啡馆 · 收支与订单管理</p>
     </header>
 
-    <!-- 设置卡片：填写 API Key -->
-    <div class="bg-white p-4 rounded-2xl shadow-sm border border-stone-200 space-y-2">
-      <label class="block text-xs font-semibold text-stone-500 uppercase">Google Gemini API Key</label>
-      <input type="password" id="apiKey" placeholder="在此粘贴 API Key (以 AIzaSy 开头)" 
-             class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-700">
-      <p class="text-xs text-stone-400">请确保前后的 API Key 粘贴完整且无多余空格。</p>
-    </div>
-
-    <!-- 上传卡片 -->
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 text-center space-y-4">
-      <div class="border-2 border-dashed border-stone-300 rounded-xl p-6 hover:bg-stone-50 transition cursor-pointer relative">
-        <input type="file" id="imageInput" accept="image/*" 
-               class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="previewImage(event)">
-        <div class="space-y-2" id="uploadPlaceholder">
-          <div class="text-4xl">📷</div>
-          <p class="text-sm font-medium text-stone-600">点击上传或选择收据图片</p>
-        </div>
-        <img id="imagePreview" class="hidden max-h-48 mx-auto rounded-lg shadow-sm" />
+    <!-- 财务看板 -->
+    <div class="grid grid-cols-3 gap-3 text-center">
+      <div class="bg-white p-3 rounded-2xl shadow-sm border border-stone-200">
+        <div class="text-xs text-stone-400 font-medium">总收入</div>
+        <div id="totalIncome" class="text-lg font-bold text-emerald-600 mt-1">$0.00</div>
       </div>
-
-      <button onclick="analyzeReceipt()" id="btnAnalyze" 
-              class="w-full bg-amber-800 hover:bg-amber-900 text-white font-medium py-3 rounded-xl shadow transition disabled:opacity-50">
-        识别收据
-      </button>
-
-      <!-- 详细报错显示区 -->
-      <div id="errorBox" class="hidden text-left p-3 text-xs bg-red-50 text-red-600 border border-red-200 rounded-lg"></div>
-    </div>
-
-    <!-- 结果卡片 -->
-    <div id="resultCard" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
-      <h2 class="font-bold text-stone-700 border-b pb-2">识别结果确认</h2>
-      <div class="space-y-3">
-        <div>
-          <label class="text-xs text-stone-500">日期</label>
-          <input type="text" id="resDate" class="w-full font-mono bg-stone-50 p-2 rounded border border-stone-200 text-sm">
-        </div>
-        <div>
-          <label class="text-xs text-stone-500">商家 / 供应商</label>
-          <input type="text" id="resVendor" class="w-full bg-stone-50 p-2 rounded border border-stone-200 text-sm">
-        </div>
-        <div>
-          <label class="text-xs text-stone-500">总金额</label>
-          <input type="number" step="0.01" id="resAmount" class="w-full font-bold text-amber-900 bg-stone-50 p-2 rounded border border-stone-200 text-base">
-        </div>
+      <div class="bg-white p-3 rounded-2xl shadow-sm border border-stone-200">
+        <div class="text-xs text-stone-400 font-medium">总开销</div>
+        <div id="totalExpense" class="text-lg font-bold text-rose-600 mt-1">$0.00</div>
       </div>
-      <button onclick="saveRecord()" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-medium py-2.5 rounded-xl transition">
-        确认并记录
-      </button>
+      <div class="bg-white p-3 rounded-2xl shadow-sm border border-stone-200">
+        <div class="text-xs text-stone-400 font-medium">净利润</div>
+        <div id="netProfit" class="text-lg font-bold text-amber-900 mt-1">$0.00</div>
+      </div>
     </div>
 
-    <!-- 历史记录 -->
+    <!-- 记账表单 -->
     <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
-      <h2 class="font-bold text-stone-700 border-b pb-2">开销明细</h2>
-      <div id="historyList" class="divide-y divide-stone-100 text-sm">
-        <p class="text-stone-400 text-center py-4">暂无开销记录</p>
+      <h2 class="font-bold text-stone-700 border-b pb-2">记一笔</h2>
+      
+      <form id="recordForm" class="space-y-4" onsubmit="addRecord(event)">
+        <!-- 类型选择 (收入/支出) -->
+        <div class="grid grid-cols-2 gap-2 p-1 bg-stone-100 rounded-xl">
+          <button type="button" id="btnIncome" onclick="setType('income')" 
+                  class="py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white shadow-sm transition">
+            📈 订单收入
+          </button>
+          <button type="button" id="btnExpense" onclick="setType('expense')" 
+                  class="py-2 text-sm font-medium rounded-lg text-stone-600 transition">
+            📉 开销支出
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-stone-500 mb-1">日期</label>
+            <input type="date" id="recDate" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-800">
+          </div>
+
+          <div>
+            <label class="block text-xs text-stone-500 mb-1">说明 / 客户 / 供应商</label>
+            <input type="text" id="recTitle" placeholder="例如：拿铁2杯 / 购买咖啡豆" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-800">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">金额 ($ / RM)</label>
+              <input type="number" step="0.01" id="recAmount" placeholder="0.00" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-800">
+            </div>
+            <div>
+              <label class="block text-xs text-stone-500 mb-1">分类</label>
+              <select id="recCategory" class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-800">
+                <option value="咖啡销售">咖啡销售</option>
+                <option value="豆子/牛奶">豆子/牛奶</option>
+                <option value="包装/消耗品">包装/消耗品</option>
+                <option value="设备/维护">设备/维护</option>
+                <option value="水电杂费">水电杂费</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-amber-800 hover:bg-amber-900 text-white font-medium py-3 rounded-xl shadow transition">
+          保存记录
+        </button>
+      </form>
+    </div>
+
+    <!-- 账目列表 -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 space-y-4">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h2 class="font-bold text-stone-700">历史账目</h2>
+        <button onclick="clearAll()" class="text-xs text-stone-400 hover:text-rose-500">清空所有</button>
+      </div>
+      
+      <div id="recordList" class="divide-y divide-stone-100 text-sm">
+        <p class="text-stone-400 text-center py-4">暂无账目记录</p>
       </div>
     </div>
   </div>
 
   <script>
+    let currentType = 'income';
+
     document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('apiKey').value = localStorage.getItem('gemini_key') || '';
-      renderHistory();
+      // 默认设置为今天
+      document.getElementById('recDate').value = new Date().toISOString().split('T')[0];
+      renderList();
     });
 
-    document.getElementById('apiKey').addEventListener('input', (e) => {
-      localStorage.setItem('gemini_key', e.target.value.trim());
-    });
+    function setType(type) {
+      currentType = type;
+      const btnIncome = document.getElementById('btnIncome');
+      const btnExpense = document.getElementById('btnExpense');
 
-    let base64Image = "";
-
-    function previewImage(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      // 自动把图片压缩，避免手机拍照图片太大导致请求失败
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // 限制图片最大尺寸，提升识别成功率
-          const max_size = 1000;
-          if (width > height) {
-            if (width > max_size) { height *= max_size / width; width = max_size; }
-          } else {
-            if (height > max_size) { width *= max_size / height; height = max_size; }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          const compressedUrl = canvas.toDataURL('image/jpeg', 0.8);
-          base64Image = compressedUrl.split(',')[1];
-          
-          const preview = document.getElementById('imagePreview');
-          preview.src = compressedUrl;
-          preview.classList.remove('hidden');
-          document.getElementById('uploadPlaceholder').classList.add('hidden');
-        }
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    async function analyzeReceipt() {
-      const apiKey = document.getElementById('apiKey').value.trim();
-      const errorBox = document.getElementById('errorBox');
-      errorBox.classList.add('hidden');
-      errorBox.innerText = "";
-
-      if (!apiKey) return showError("请先在上方框内粘贴你的 API Key！");
-      if (!base64Image) return showError("请先选择一张收据图片！");
-
-      const btn = document.getElementById('btnAnalyze');
-      btn.disabled = true;
-      btn.innerText = "正在分析收据中...";
-
-      const promptText = "分析收据图片，提取：1.日期(YYYY-MM-DD) 2.商家名称(vendor) 3.总金额数字(total_amount)。只输出JSON格式：{\"date\":\"2026-01-01\",\"vendor\":\"xxx\",\"total_amount\":12.3}";
-
-      try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: promptText },
-                { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-              ]
-            }]
-          })
-        });
-
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error?.message || `请求失败 HTTP ${res.status}`);
-        }
-
-        const data = await res.json();
-        const textResp = data.candidates[0].content.parts[0].text;
-        const cleanJson = textResp.replace(/```json|```/g, "").trim();
-        const parsed = JSON.parse(cleanJson);
-
-        document.getElementById('resDate').value = parsed.date || "";
-        document.getElementById('resVendor').value = parsed.vendor || "";
-        document.getElementById('resAmount').value = parsed.total_amount || 0;
-
-        document.getElementById('resultCard').classList.remove('hidden');
-      } catch (err) {
-        showError("识别错误提示：" + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerText = "识别收据";
+      if (type === 'income') {
+        btnIncome.className = "py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white shadow-sm transition";
+        btnExpense.className = "py-2 text-sm font-medium rounded-lg text-stone-600 transition";
+      } else {
+        btnExpense.className = "py-2 text-sm font-medium rounded-lg bg-rose-600 text-white shadow-sm transition";
+        btnIncome.className = "py-2 text-sm font-medium rounded-lg text-stone-600 transition";
       }
     }
 
-    function showError(msg) {
-      const errorBox = document.getElementById('errorBox');
-      errorBox.innerText = msg;
-      errorBox.classList.remove('hidden');
-    }
-
-    function saveRecord() {
+    function addRecord(e) {
+      e.preventDefault();
+      
       const record = {
-        date: document.getElementById('resDate').value,
-        vendor: document.getElementById('resVendor').value,
-        amount: parseFloat(document.getElementById('resAmount').value) || 0
+        id: Date.now(),
+        type: currentType,
+        date: document.getElementById('recDate').value,
+        title: document.getElementById('recTitle').value.trim(),
+        amount: parseFloat(document.getElementById('recAmount').value),
+        category: document.getElementById('recCategory').value
       };
 
-      const history = JSON.parse(localStorage.getItem('expense_history') || '[]');
-      history.unshift(record);
-      localStorage.setItem('expense_history', JSON.stringify(history));
+      const records = JSON.parse(localStorage.getItem('elowyn_records') || '[]');
+      records.unshift(record);
+      localStorage.setItem('elowyn_records', JSON.stringify(records));
 
-      renderHistory();
-      document.getElementById('resultCard').classList.add('hidden');
-      alert("成功存入开销记录！");
+      // 清空输入框
+      document.getElementById('recTitle').value = '';
+      document.getElementById('recAmount').value = '';
+      
+      renderList();
     }
 
-    function renderHistory() {
-      const history = JSON.parse(localStorage.getItem('expense_history') || '[]');
-      const container = document.getElementById('historyList');
-      if (history.length === 0) {
-        container.innerHTML = '<p class="text-stone-400 text-center py-4">暂无开销记录</p>';
-        return;
+    function deleteRecord(id) {
+      let records = JSON.parse(localStorage.getItem('elowyn_records') || '[]');
+      records = records.filter(r => r.id !== id);
+      localStorage.setItem('elowyn_records', JSON.stringify(records));
+      renderList();
+    }
+
+    function clearAll() {
+      if (confirm("确定要清空所有记录吗？此操作无法撤销。")) {
+        localStorage.removeItem('elowyn_records');
+        renderList();
       }
-      container.innerHTML = history.map(item => `
-        <div class="py-3 flex justify-between items-center">
-          <div>
-            <div class="font-medium text-stone-800">${item.vendor || '未提取到商家'}</div>
-            <div class="text-xs text-stone-400">${item.date}</div>
-          </div>
-          <div class="font-bold text-amber-900">$${item.amount.toFixed(2)}</div>
-        </div>
-      `).join('');
+    }
+
+    function renderList() {
+      const records = JSON.parse(localStorage.getItem('elowyn_records') || '[]');
+      const container = document.getElementById('recordList');
+
+      let totalIncome = 0;
+      let totalExpense = 0;
+
+      if (records.length === 0) {
+        container.innerHTML = '<p class="text-stone-400 text-center py-4">暂无账目记录</p>';
+      } else {
+        container.innerHTML = records.map(item => {
+          const isIncome = item.type === 'income';
+          if (isIncome) totalIncome += item.amount;
+          else totalExpense += item.amount;
+
+          return `
+            <div class="py-3 flex justify-between items-center">
+              <div class="space-y-0.5">
+                <div class="font-medium text-stone-800">
+                  ${item.title}
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-normal ml-1">${item.category}</span>
+                </div>
+                <div class="text-xs text-stone-400">${item.date}</div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="font-bold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">
+                  ${isIncome ? '+' : '-'}$${item.amount.toFixed(2)}
+                </span>
+                <button onclick="deleteRecord(${item.id})" class="text-stone-300 hover:text-rose-500 text-xs">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // 更新顶部面板
+      document.getElementById('totalIncome').innerText = `$${totalIncome.toFixed(2)}`;
+      document.getElementById('totalExpense').innerText = `$${totalExpense.toFixed(2)}`;
+      
+      const profit = totalIncome - totalExpense;
+      const profitEl = document.getElementById('netProfit');
+      profitEl.innerText = `$${profit.toFixed(2)}`;
+      profitEl.className = `text-lg font-bold mt-1 ${profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`;
     }
   </script>
 </body>
