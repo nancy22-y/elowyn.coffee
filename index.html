@@ -3,184 +3,283 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>elowyn.coffee - Excel 账目表</title>
+  <title>elowyn.coffee - 双页账目系统</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-stone-100 text-stone-800 min-h-screen p-2 md:p-6">
 
   <div class="max-w-6xl mx-auto space-y-4">
-    <!-- 头部与汇总 -->
+    
+    <!-- 1. 顶部标语与财务看板 (自动统计净利润) -->
     <header class="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex flex-col md:flex-row justify-between items-center gap-4">
       <div>
         <h1 class="text-xl font-bold text-amber-900">elowyn.coffee</h1>
-        <p class="text-xs text-stone-400">住家式咖啡馆 · Excel 样式流水账表</p>
+        <p class="text-xs text-stone-400">住家式咖啡馆 · 开销与订单双页管理系统</p>
       </div>
 
-      <div class="flex gap-6 text-sm">
+      <!-- 自动统计看板 -->
+      <div class="flex gap-6 text-sm bg-stone-50 px-4 py-2 rounded-xl border border-stone-200">
         <div class="text-center">
           <span class="text-xs text-stone-400 block">总收入</span>
-          <span id="totalIncome" class="font-bold text-emerald-600 text-base">$0.00</span>
+          <span id="statIncome" class="font-bold text-emerald-600 text-base">$0.00</span>
         </div>
-        <div class="text-center">
+        <div class="text-center border-l border-stone-200 pl-6">
           <span class="text-xs text-stone-400 block">总开销</span>
-          <span id="totalExpense" class="font-bold text-rose-600 text-base">$0.00</span>
+          <span id="statExpense" class="font-bold text-rose-600 text-base">$0.00</span>
         </div>
-        <div class="text-center">
-          <span class="text-xs text-stone-400 block">结余/净利润</span>
-          <span id="netProfit" class="font-bold text-amber-900 text-base">$0.00</span>
+        <div class="text-center border-l border-stone-200 pl-6">
+          <span class="text-xs text-stone-400 block">净利润</span>
+          <span id="statProfit" class="font-bold text-amber-900 text-base">$0.00</span>
         </div>
       </div>
     </header>
 
-    <!-- 主表格区域 (Excel 视图) -->
-    <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
+    <!-- 2. 标签页切换按钮 (Tabs) -->
+    <div class="flex gap-2 border-b border-stone-300 pb-1">
+      <button id="tabBtnExpense" onclick="switchTab('expense')" 
+              class="px-5 py-2 font-bold text-sm rounded-t-xl transition bg-white text-rose-600 border-t border-x border-stone-200 shadow-sm">
+        📉 开销支出 (Expenses)
+      </button>
+      <button id="tabBtnIncome" onclick="switchTab('income')" 
+              class="px-5 py-2 font-bold text-sm rounded-t-xl transition text-stone-500 hover:text-emerald-600">
+        📈 订单收入 (Orders)
+      </button>
+    </div>
+
+    <!-- 3. 开销页面 (Expenses Page) -->
+    <div id="pageExpense" class="bg-white rounded-b-xl shadow-sm border border-stone-200 overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse text-xs md:text-sm">
-          <!-- 表头 -->
           <thead>
             <tr class="bg-stone-200/70 text-stone-600 font-semibold border-b border-stone-300">
               <th class="p-2.5 border-r border-stone-300 w-32">日期</th>
-              <th class="p-2.5 border-r border-stone-300 w-24">类型</th>
-              <th class="p-2.5 border-r border-stone-300 w-32">分类</th>
-              <th class="p-2.5 border-r border-stone-300">说明 / 项目明细</th>
-              <th class="p-2.5 border-r border-stone-300 w-32 text-right">金额 ($ / RM)</th>
+              <th class="p-2.5 border-r border-stone-300 w-36">开销分类</th>
+              <th class="p-2.5 border-r border-stone-300">说明 / 供应商 / 购买物品</th>
+              <th class="p-2.5 border-r border-stone-300 w-32 text-right">开销金额 ($ / RM)</th>
               <th class="p-2.5 text-center w-16">操作</th>
             </tr>
           </thead>
-
           <tbody>
-            <!-- 快速新增行 (Excel 录入行) -->
-            <tr class="bg-amber-50/50 border-b-2 border-amber-200">
+            <!-- 新增开销行 -->
+            <tr class="bg-rose-50/50 border-b-2 border-rose-200">
               <td class="p-1 border-r border-stone-200">
-                <input type="date" id="newDate" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+                <input type="date" id="expDate" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
               </td>
               <td class="p-1 border-r border-stone-200">
-                <select id="newType" class="w-full bg-transparent p-1 font-medium focus:bg-white focus:outline-none text-xs">
-                  <option value="income" class="text-emerald-600">📈 收入</option>
-                  <option value="expense" class="text-rose-600">📉 支出</option>
-                </select>
-              </td>
-              <td class="p-1 border-r border-stone-200">
-                <select id="newCategory" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
-                  <option value="咖啡销售">咖啡销售</option>
-                  <option value="豆子/牛奶">豆子/牛奶</option>
-                  <option value="包装/消耗品">包装/消耗品</option>
-                  <option value="设备/工具">设备/工具</option>
+                <select id="expCategory" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+                  <option value="咖啡豆/牛奶">咖啡豆/牛奶</option>
+                  <option value="糖浆/耗材">糖浆/耗材</option>
+                  <option value="杯子/打包盒">杯子/打包盒</option>
+                  <option value="设备维修/购买">设备维修/购买</option>
                   <option value="水电杂费">水电杂费</option>
-                  <option value="其他">其他</option>
+                  <option value="其他开销">其他开销</option>
                 </select>
               </td>
               <td class="p-1 border-r border-stone-200">
-                <input type="text" id="newTitle" placeholder="+ 填写说明按回车保存" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+                <input type="text" id="expTitle" placeholder="+ 输入开销说明" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
               </td>
               <td class="p-1 border-r border-stone-200">
-                <input type="number" step="0.01" id="newAmount" placeholder="0.00" class="w-full bg-transparent p-1 text-right font-bold focus:bg-white focus:outline-none text-xs">
+                <input type="number" step="0.01" id="expAmount" placeholder="0.00" class="w-full bg-transparent p-1 text-right font-bold text-rose-600 focus:bg-white focus:outline-none text-xs">
               </td>
               <td class="p-1 text-center">
-                <button onclick="addRecord()" class="bg-amber-800 hover:bg-amber-900 text-white text-xs px-2 py-1 rounded transition">添加</button>
+                <button onclick="addExpense()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-2.5 py-1 rounded transition">记录</button>
               </td>
             </tr>
-
-            <!-- 动态渲染数据行 -->
-            <tbody id="tableBody">
-              <!-- 数据行会通过 JS 添加到这里 -->
-            </tbody>
+            <!-- 支出表格列表 -->
+            <tbody id="tbodyExpense"></tbody>
           </tbody>
         </table>
       </div>
     </div>
+
+    <!-- 4. 订单收入页面 (Income Page) -->
+    <div id="pageIncome" class="hidden bg-white rounded-b-xl shadow-sm border border-stone-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs md:text-sm">
+          <thead>
+            <tr class="bg-stone-200/70 text-stone-600 font-semibold border-b border-stone-300">
+              <th class="p-2.5 border-r border-stone-300 w-32">日期</th>
+              <th class="p-2.5 border-r border-stone-300 w-36">收入类型</th>
+              <th class="p-2.5 border-r border-stone-300">订单内容 / 顾客姓名</th>
+              <th class="p-2.5 border-r border-stone-300 w-32 text-right">收入金额 ($ / RM)</th>
+              <th class="p-2.5 text-center w-16">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 新增收入行 -->
+            <tr class="bg-emerald-50/50 border-b-2 border-emerald-200">
+              <td class="p-1 border-r border-stone-200">
+                <input type="date" id="incDate" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+              </td>
+              <td class="p-1 border-r border-stone-200">
+                <select id="incCategory" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+                  <option value="咖啡销售">咖啡销售</option>
+                  <option value="特饮/甜品">特饮/甜品</option>
+                  <option value="咖啡豆外售">咖啡豆外售</option>
+                  <option value="团购/预订单">团购/预订单</option>
+                  <option value="其他收入">其他收入</option>
+                </select>
+              </td>
+              <td class="p-1 border-r border-stone-200">
+                <input type="text" id="incTitle" placeholder="+ 输入订单明细" class="w-full bg-transparent p-1 focus:bg-white focus:outline-none text-xs">
+              </td>
+              <td class="p-1 border-r border-stone-200">
+                <input type="number" step="0.01" id="incAmount" placeholder="0.00" class="w-full bg-transparent p-1 text-right font-bold text-emerald-600 focus:bg-white focus:outline-none text-xs">
+              </td>
+              <td class="p-1 text-center">
+                <button onclick="addIncome()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1 rounded transition">记录</button>
+              </td>
+            </tr>
+            <!-- 收入表格列表 -->
+            <tbody id="tbodyIncome"></tbody>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // 默认设置今天日期
-      document.getElementById('newDate').value = new Date().toISOString().split('T')[0];
-      
-      // 在金额输入框回车直接保存
-      document.getElementById('newAmount').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') addRecord();
-      });
+    let activeTab = 'expense';
 
-      renderTable();
+    document.addEventListener('DOMContentLoaded', () => {
+      // 默认填入今天日期
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('expDate').value = today;
+      document.getElementById('incDate').value = today;
+
+      // 回车直接添加
+      document.getElementById('expAmount').addEventListener('keypress', (e) => { if (e.key === 'Enter') addExpense(); });
+      document.getElementById('incAmount').addEventListener('keypress', (e) => { if (e.key === 'Enter') addIncome(); });
+
+      renderAll();
     });
 
-    function addRecord() {
-      const date = document.getElementById('newDate').value;
-      const type = document.getElementById('newType').value;
-      const category = document.getElementById('newCategory').value;
-      const title = document.getElementById('newTitle').value.trim();
-      const amount = parseFloat(document.getElementById('newAmount').value);
+    // 切换 Tab
+    function switchTab(tab) {
+      activeTab = tab;
+      const btnExp = document.getElementById('tabBtnExpense');
+      const btnInc = document.getElementById('tabBtnIncome');
+      const pageExp = document.getElementById('pageExpense');
+      const pageInc = document.getElementById('pageIncome');
 
-      if (!title || isNaN(amount)) {
-        alert("请完整填写【说明】和【金额】！");
-        return;
-      }
-
-      const record = { id: Date.now(), date, type, category, title, amount };
-      const records = JSON.parse(localStorage.getItem('elowyn_excel_records') || '[]');
-      records.unshift(record);
-      localStorage.setItem('elowyn_excel_records', JSON.stringify(records));
-
-      // 清空输入框
-      document.getElementById('newTitle').value = '';
-      document.getElementById('newAmount').value = '';
-
-      renderTable();
-    }
-
-    function deleteRecord(id) {
-      let records = JSON.parse(localStorage.getItem('elowyn_excel_records') || '[]');
-      records = records.filter(r => r.id !== id);
-      localStorage.setItem('elowyn_excel_records', JSON.stringify(records));
-      renderTable();
-    }
-
-    function renderTable() {
-      const records = JSON.parse(localStorage.getItem('elowyn_excel_records') || '[]');
-      const tbody = document.getElementById('tableBody');
-
-      let totalIncome = 0;
-      let totalExpense = 0;
-
-      if (records.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="6" class="text-center py-6 text-stone-400">暂无任何数据，请在上方第一行输入并添加。</td>
-          </tr>
-        `;
+      if (tab === 'expense') {
+        pageExp.classList.remove('hidden');
+        pageInc.classList.add('hidden');
+        btnExp.className = "px-5 py-2 font-bold text-sm rounded-t-xl transition bg-white text-rose-600 border-t border-x border-stone-200 shadow-sm";
+        btnInc.className = "px-5 py-2 font-bold text-sm rounded-t-xl transition text-stone-500 hover:text-emerald-600";
       } else {
-        tbody.innerHTML = records.map((item, index) => {
-          const isIncome = item.type === 'income';
-          if (isIncome) totalIncome += item.amount;
-          else totalExpense += item.amount;
+        pageInc.classList.remove('hidden');
+        pageExp.classList.add('hidden');
+        btnInc.className = "px-5 py-2 font-bold text-sm rounded-t-xl transition bg-white text-emerald-600 border-t border-x border-stone-200 shadow-sm";
+        btnExp.className = "px-5 py-2 font-bold text-sm rounded-t-xl transition text-stone-500 hover:text-rose-600";
+      }
+    }
 
+    // 添加开销
+    function addExpense() {
+      const date = document.getElementById('expDate').value;
+      const category = document.getElementById('expCategory').value;
+      const title = document.getElementById('expTitle').value.trim();
+      const amount = parseFloat(document.getElementById('expAmount').value);
+
+      if (!title || isNaN(amount)) return alert("请填写完整的开销【说明】和【金额】！");
+
+      const item = { id: Date.now(), date, category, title, amount };
+      const expenses = JSON.parse(localStorage.getItem('elowyn_expenses') || '[]');
+      expenses.unshift(item);
+      localStorage.setItem('elowyn_expenses', JSON.stringify(expenses));
+
+      document.getElementById('expTitle').value = '';
+      document.getElementById('expAmount').value = '';
+      renderAll();
+    }
+
+    // 添加收入
+    function addIncome() {
+      const date = document.getElementById('incDate').value;
+      const category = document.getElementById('incCategory').value;
+      const title = document.getElementById('incTitle').value.trim();
+      const amount = parseFloat(document.getElementById('incAmount').value);
+
+      if (!title || isNaN(amount)) return alert("请填写完整的订单【内容】和【金额】！");
+
+      const item = { id: Date.now(), date, category, title, amount };
+      const incomes = JSON.parse(localStorage.getItem('elowyn_incomes') || '[]');
+      incomes.unshift(item);
+      localStorage.setItem('elowyn_incomes', JSON.stringify(incomes));
+
+      document.getElementById('incTitle').value = '';
+      document.getElementById('incAmount').value = '';
+      renderAll();
+    }
+
+    // 删除记录
+    function deleteItem(type, id) {
+      const key = type === 'expense' ? 'elowyn_expenses' : 'elowyn_incomes';
+      let list = JSON.parse(localStorage.getItem(key) || '[]');
+      list = list.filter(item => item.id !== id);
+      localStorage.setItem(key, JSON.stringify(list));
+      renderAll();
+    }
+
+    // 渲染表格与重新计算净利润
+    function renderAll() {
+      const expenses = JSON.parse(localStorage.getItem('elowyn_expenses') || '[]');
+      const incomes = JSON.parse(localStorage.getItem('elowyn_incomes') || '[]');
+
+      // 1. 渲染开销表
+      let totalExpense = 0;
+      const tbodyExp = document.getElementById('tbodyExpense');
+      if (expenses.length === 0) {
+        tbodyExp.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-stone-400">暂无开销记录。</td></tr>`;
+      } else {
+        tbodyExp.innerHTML = expenses.map((item, i) => {
+          totalExpense += item.amount;
           return `
-            <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-stone-50'} hover:bg-amber-50/30 border-b border-stone-200 transition">
+            <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-stone-50'} hover:bg-rose-50/30 border-b border-stone-200 transition">
               <td class="p-2 border-r border-stone-200 font-mono text-xs text-stone-500">${item.date}</td>
-              <td class="p-2 border-r border-stone-200 font-medium ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">
-                ${isIncome ? '收入' : '支出'}
-              </td>
               <td class="p-2 border-r border-stone-200 text-stone-600">${item.category}</td>
               <td class="p-2 border-r border-stone-200 text-stone-800 font-medium">${item.title}</td>
-              <td class="p-2 border-r border-stone-200 text-right font-bold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">
-                ${isIncome ? '+' : '-'}$${item.amount.toFixed(2)}
-              </td>
+              <td class="p-2 border-r border-stone-200 text-right font-bold text-rose-600">-$${item.amount.toFixed(2)}</td>
               <td class="p-2 text-center">
-                <button onclick="deleteRecord(${item.id})" class="text-stone-300 hover:text-rose-500 text-xs font-bold">✕</button>
+                <button onclick="deleteItem('expense', ${item.id})" class="text-stone-300 hover:text-rose-500 text-xs font-bold">✕</button>
               </td>
             </tr>
           `;
         }).join('');
       }
 
-      // 更新顶部统计数据
-      document.getElementById('totalIncome').innerText = `$${totalIncome.toFixed(2)}`;
-      document.getElementById('totalExpense').innerText = `$${totalExpense.toFixed(2)}`;
+      // 2. 渲染收入表
+      let totalIncome = 0;
+      const tbodyInc = document.getElementById('tbodyIncome');
+      if (incomes.length === 0) {
+        tbodyInc.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-stone-400">暂无订单收入记录。</td></tr>`;
+      } else {
+        tbodyInc.innerHTML = incomes.map((item, i) => {
+          totalIncome += item.amount;
+          return `
+            <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-stone-50'} hover:bg-emerald-50/30 border-b border-stone-200 transition">
+              <td class="p-2 border-r border-stone-200 font-mono text-xs text-stone-500">${item.date}</td>
+              <td class="p-2 border-r border-stone-200 text-stone-600">${item.category}</td>
+              <td class="p-2 border-r border-stone-200 text-stone-800 font-medium">${item.title}</td>
+              <td class="p-2 border-r border-stone-200 text-right font-bold text-emerald-600">+$${item.amount.toFixed(2)}</td>
+              <td class="p-2 text-center">
+                <button onclick="deleteItem('income', ${item.id})" class="text-stone-300 hover:text-rose-500 text-xs font-bold">✕</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // 3. 统计并计算净利润
+      const netProfit = totalIncome - totalExpense;
+      document.getElementById('statIncome').innerText = `$${totalIncome.toFixed(2)}`;
+      document.getElementById('statExpense').innerText = `$${totalExpense.toFixed(2)}`;
       
-      const profit = totalIncome - totalExpense;
-      const profitEl = document.getElementById('netProfit');
-      profitEl.innerText = `$${profit.toFixed(2)}`;
-      profitEl.className = `font-bold text-base ${profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`;
+      const profitEl = document.getElementById('statProfit');
+      profitEl.innerText = `$${netProfit.toFixed(2)}`;
+      profitEl.className = `font-bold text-base ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`;
     }
   </script>
 </body>
